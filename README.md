@@ -7,3 +7,9 @@
 In order to run 2 and 3, add `scripts/` to your `PATH` before using the demo `Makefile`s (or invoke `/this/path/scripts/mojoc` directly). The scripts require `python` to be available in `PATH`.
 
 (note: the scripts have not yet been updated to support macOS, but the approach should work with minor modifications)
+
+or you can use 
+```bash
+source setup.sh
+```
+this will make the Makefiles on 3 work properly
