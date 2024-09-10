@@ -5,6 +5,7 @@ Simple ld wrapper to do fun things
 
 import json
 import subprocess
+import platform
 import sys, os, shutil
 
 def lprefix(the_list, prefix):
@@ -32,7 +33,16 @@ def main():
         remove_arg("--gc-sections")
 
         # can't use with shared linkage
-        remove_arg("/usr/lib/gcc/x86_64-linux-gnu/9/../../../x86_64-linux-gnu/Scrt1.o")
+        # remove_arg("/usr/lib/gcc/aarch64-linux-gnu/9/../../../aarch64-linux-gnu/Scrt1.o")
+        supported_architectures = {"x86_64", "aarch64"}
+        os_type = platform.system()
+        arch = platform.machine()
+        
+        if os_type == "Linux" and arch in supported_architectures:
+            path = f"/usr/lib/gcc/{arch}-linux-gnu/9/../../../{arch}-linux-gnu/Scrt1.o"
+            remove_arg(path)
+        else:
+            print(f"Unsupported environment: OS={os_type}, Arch={arch}")
 
         # force the linker to keep all symbols. this is ugly but simple for now.
         # TODO: extract @export annotations and make linker script

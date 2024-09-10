@@ -5,10 +5,12 @@ import argparse
 import base64
 import os
 import json
+import shutil
 import sys
 import subprocess
 
 from typing import List
+
 
 def make_parser():
     parser = argparse.ArgumentParser()
@@ -33,6 +35,7 @@ def make_parser():
 
     return parser
 
+
 def test_parser():
     parser = make_parser()
 
@@ -49,50 +52,59 @@ def test_parser():
     print(a1.output_file)
     assert a1.output_file == "test"
 
+
 #test_parser()
 
-def run_mojo(args, mojo_args):
+
+def prepare_ld_args(args, mojo_args):
     link_args = [f"-l{arg}" for arg in args.link_libs] if args.link_libs else []
     lib_args = [f"-L{arg}" for arg in args.link_paths] if args.link_paths else []
-    # Use `-S` arguments to pass through individual objects to link
+
     if args.link_static:
         lib_args += args.link_static
 
-    ld_fwd = {
+    return {
         "shared": args.shared,
         "link_args": link_args,
         "lib_args": lib_args,
         "output_file": args.output_file
-    }
-    # Should be safe enough for now, use base64 later if needed
-    ld_fwd_json = json.dumps(ld_fwd)
+    } 
 
+
+def get_subprocess_env(args, mojo_args):
     env = os.environ.copy()
-    env["MOJOC_LD_FWD"] = ld_fwd_json
-    # We want mojo to use the `ld` sitting next to this file
-    #env["PATH"] = os.path.join(os.path.dirname(__file__)) + ":" + env["PATH"]
-    mojoc_real_dir = os.path.dirname(os.path.realpath(__file__))
-    env["PATH"] = mojoc_real_dir + ":" + env["PATH"]
 
-    #print("MOJOC_LD_FWD", ld_fwd_json)
+    # We need mojo to use the `ld` in the hooks dir next to this file
+    mojoc_dir = os.path.dirname(os.path.realpath(__file__))
+    ld_path =  mojoc_dir + "/hooks"
+    env["PATH"] = ld_path + ":" + env["PATH"]
 
+    # We need to pass the user's arguments onto  our `ld` hook
+    ld_args = prepare_ld_args(args, mojo_args)
+    env["MOJOC_LD_FWD"] = json.dumps(ld_args)
+
+    return env
+
+
+def run_mojo(args, mojo_args):
     exec_args = (
         "mojo", "build", *mojo_args
     )
     exec_kwargs = {
-        "env": env,
+        "env": get_subprocess_env(args, mojo_args),
     }
 
-    #print(exec_args)
-    #print(exec_kwargs)
-
     return subprocess.run(exec_args, **exec_kwargs, check=False)
+
 
 def cli(input_args):
     parser = make_parser()
     args, mojo_args = parser.parse_known_args(input_args)
-
+    
+    # parse_known_args returns a tuple of known & unknown args
+    # we pass the unknown and shared args onto `mojo build`
     run_mojo(args, mojo_args)
+
 
 if __name__ == '__main__':
     cli(sys.argv)
